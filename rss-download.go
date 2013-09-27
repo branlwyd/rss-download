@@ -96,6 +96,8 @@ func watchFeed(
   lastTitle string) {
   log.Printf("[%s] Starting watch.", name)
 
+  checkTime := time.Now()
+
   // Main loop.
   for {
     log.Printf("[%s] Checking for new items.", name)
@@ -131,20 +133,17 @@ func watchFeed(
     }
 
     // Determine next wait time & wait.
-    now := time.Now()
-    var nextWakeTime time.Time
-
-    if isRapid(now, dayOfWeek, seconds) {
-      nextWakeTime = now.Add(time.Duration(*rapidCheckInterval) * time.Second)
+    if isRapid(checkTime, dayOfWeek, seconds) {
+      checkTime = checkTime.Add(time.Duration(*rapidCheckInterval) * time.Second)
     } else {
-      nextWakeTime = now.Add(time.Duration(*checkInterval) * time.Second)
+      checkTime = checkTime.Add(time.Duration(*checkInterval) * time.Second)
     }
 
-    nextRapidTime := nextRapidStartTime(now, dayOfWeek, seconds)
-    if nextWakeTime.After(nextRapidTime) {
-      nextWakeTime = nextRapidTime
+    nextRapidTime := nextRapidStartTime(checkTime, dayOfWeek, seconds)
+    if checkTime.After(nextRapidTime) {
+      checkTime = nextRapidTime
     }
-    time.Sleep(nextWakeTime.Sub(now))
+    time.Sleep(checkTime.Sub(time.Now()))
   }
 }
 
