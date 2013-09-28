@@ -26,6 +26,7 @@ type updatedTitleMessage struct {
 
 // Flag specifications.
 var dbFilename = flag.String("db_file", "feeds.db", "filename of database to use")
+var logFilename = flag.String("log_file", "", "filename to log to")
 var target = flag.String("target", "", "target directory to download to")
 var checkInterval = flag.Int(
   "check_interval", 3600, "seconds between checks during normal operation")
@@ -148,13 +149,24 @@ func watchFeed(
 }
 
 func main() {
-  log.Print("Starting rss-downloader.")
-
   // Check flags.
-  flag.Parse()
+  flag.Parse()  
   if *target == "" {
-    log.Fatal("Flag 'target' is required.")
+    log.Fatal("--target is required.")
   }
+
+  // Set up logging.
+  if *logFilename != "" {
+    logWriter, err := os.OpenFile(*logFilename, os.O_RDWR | os.O_APPEND | os.O_CREATE, 0666)
+    if err != nil {
+      log.Fatal("--log_file could not be opened")
+    }
+    
+    log.SetOutput(logWriter)
+    defer logWriter.Close()
+  }
+
+  log.Print("Starting rss-downloader.")
 
   // Connect to database.
   db, err := sql.Open("sqlite3", *dbFilename)
