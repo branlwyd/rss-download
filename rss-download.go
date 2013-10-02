@@ -74,7 +74,7 @@ func lastRapidStartTime(fromTime time.Time, dayOfWeek int, seconds int) time.Tim
   }
 
   if dayDiff == 0 {
-    if fromTime.Sub(time.Date(fromTime.Year(), fromTime.Month(), fromTime.Day(), 0, 0, 0, 0, time.Local)).Seconds() < float64(seconds) {
+    if fromTime.Before(time.Date(fromTime.Year(), fromTime.Month(), fromTime.Day(), 0, 0, seconds, 0, time.Local)) {
       dayDiff -= 7
     }
   }
@@ -88,8 +88,8 @@ func nextRapidStartTime(fromTime time.Time, dayOfWeek int, seconds int) time.Tim
 }
 
 func isRapid(fromTime time.Time, dayOfWeek int, seconds int) bool {
-  secondsSinceRapidStart := fromTime.Sub(lastRapidStartTime(fromTime, dayOfWeek, seconds)).Seconds()
-  return secondsSinceRapidStart < float64(*rapidCheckDuration)
+  rapidStartTime := lastRapidStartTime(fromTime, dayOfWeek, seconds)
+  return fromTime.Equal(rapidStartTime) || (fromTime.After(rapidStartTime) && fromTime.Before(rapidStartTime.Add(time.Duration(*rapidCheckDuration)*time.Second)))
 }
 
 func watchFeed(
@@ -134,34 +134,36 @@ func watchFeed(
     }
 
     // Determine next wait time & wait.
+    var nextCheckTime time.Time
     if isRapid(checkTime, dayOfWeek, seconds) {
-      checkTime = checkTime.Add(time.Duration(*rapidCheckInterval) * time.Second)
+      nextCheckTime = checkTime.Add(time.Duration(*rapidCheckInterval) * time.Second)
     } else {
-      checkTime = checkTime.Add(time.Duration(*checkInterval) * time.Second)
+      nextCheckTime = checkTime.Add(time.Duration(*checkInterval) * time.Second)
     }
 
     nextRapidTime := nextRapidStartTime(checkTime, dayOfWeek, seconds)
-    if checkTime.After(nextRapidTime) {
-      checkTime = nextRapidTime
+    if nextCheckTime.After(nextRapidTime) {
+      nextCheckTime = nextRapidTime
     }
+    checkTime = nextCheckTime
     time.Sleep(checkTime.Sub(time.Now()))
   }
 }
 
 func main() {
   // Check flags.
-  flag.Parse()  
+  flag.Parse()
   if *target == "" {
     log.Fatal("--target is required.")
   }
 
   // Set up logging.
   if *logFilename != "" {
-    logWriter, err := os.OpenFile(*logFilename, os.O_RDWR | os.O_APPEND | os.O_CREATE, 0666)
+    logWriter, err := os.OpenFile(*logFilename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
     if err != nil {
       log.Fatal("--log_file could not be opened")
     }
-    
+
     log.SetOutput(logWriter)
     defer logWriter.Close()
   }
