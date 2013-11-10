@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"math"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -98,15 +99,61 @@ func isRapid(fromTime time.Time, dayOfWeek int, seconds int) bool {
 	return fromTime.Equal(rapidStartTime) || (fromTime.After(rapidStartTime) && fromTime.Before(rapidStartTime.Add(time.Duration(*rapidCheckDuration)*time.Second)))
 }
 
+func nextCheckTime(lastCheckTime time.Time, dayOfWeek int, seconds int) time.Time {
+	var nextCheckTime time.Time
+
+	if isRapid(lastCheckTime, dayOfWeek, seconds) {
+		nextCheckTime = lastCheckTime.Add(time.Duration(*rapidCheckInterval) * time.Second)
+	} else {
+		nextCheckTime = lastCheckTime.Add(time.Duration(*checkInterval) * time.Second)
+	}
+
+	nextRapidTime := nextRapidStartTime(lastCheckTime, dayOfWeek, seconds)
+	if nextCheckTime.After(nextRapidTime) {
+		nextCheckTime = nextRapidTime
+	}
+	
+	return nextCheckTime
+}
+
+func firstCheckTime(startTime time.Time, dayOfWeek int, seconds int) time.Time {
+	// Grab info from last rapid start time.
+	baseTime := lastRapidStartTime(startTime, dayOfWeek, seconds)
+	var currentCheckInterval float64
+	if isRapid(startTime, dayOfWeek, seconds) {
+		currentCheckInterval = float64(*rapidCheckInterval)
+	} else {
+		baseTime = baseTime.Add(time.Duration(*rapidCheckDuration) * time.Second)
+		currentCheckInterval = float64(*checkInterval)
+	}
+
+	// Calculate next check time.
+	secondsOffsetFromBase := startTime.Sub(baseTime).Seconds()
+	nextCheckOffsetFromBase := currentCheckInterval * math.Ceil(secondsOffsetFromBase / currentCheckInterval)
+	nextCheckTime := baseTime.Add(time.Duration(nextCheckOffsetFromBase) * time.Second)
+
+	// Fixup check time if it happens to be after the next rapid start time.
+	nextRapidTime := nextRapidStartTime(startTime, dayOfWeek, seconds)
+	if nextCheckTime.After(nextRapidTime) {
+		nextCheckTime = nextRapidTime
+	}
+
+	return nextCheckTime
+}
+
 func watchFeed(
 	messages chan updatedTitleMessage, name string, feedUrl string, dayOfWeek int, seconds int,
 	lastTitle string) {
 	log.Printf("[%s] Starting watch.", name)
 
-	checkTime := time.Now()
+	checkTime := firstCheckTime(time.Now(), dayOfWeek, seconds)
 
 	// Main loop.
 	for {
+		// Wait until the next check time.
+		time.Sleep(checkTime.Sub(time.Now()))
+		checkTime = nextCheckTime(checkTime, dayOfWeek, seconds)
+
 		// Fetch RSS.
 		<-requestDelayTicker
 		log.Printf("[%s] Checking for new items.", name)
@@ -144,21 +191,6 @@ func watchFeed(
 				}
 			}
 		}
-
-		// Determine next wait time & wait.
-		var nextCheckTime time.Time
-		if isRapid(checkTime, dayOfWeek, seconds) {
-			nextCheckTime = checkTime.Add(time.Duration(*rapidCheckInterval) * time.Second)
-		} else {
-			nextCheckTime = checkTime.Add(time.Duration(*checkInterval) * time.Second)
-		}
-
-		nextRapidTime := nextRapidStartTime(checkTime, dayOfWeek, seconds)
-		if nextCheckTime.After(nextRapidTime) {
-			nextCheckTime = nextRapidTime
-		}
-		checkTime = nextCheckTime
-		time.Sleep(checkTime.Sub(time.Now()))
 	}
 }
 
