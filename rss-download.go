@@ -6,11 +6,11 @@ import (
 	"flag"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path"
 	"strings"
-	"math"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -112,7 +112,7 @@ func nextCheckTime(lastCheckTime time.Time, dayOfWeek int, seconds int) time.Tim
 	if nextCheckTime.After(nextRapidTime) {
 		nextCheckTime = nextRapidTime
 	}
-	
+
 	return nextCheckTime
 }
 
@@ -129,7 +129,7 @@ func firstCheckTime(startTime time.Time, dayOfWeek int, seconds int) time.Time {
 
 	// Calculate next check time.
 	secondsOffsetFromBase := startTime.Sub(baseTime).Seconds()
-	nextCheckOffsetFromBase := currentCheckInterval * math.Ceil(secondsOffsetFromBase / currentCheckInterval)
+	nextCheckOffsetFromBase := currentCheckInterval * math.Ceil(secondsOffsetFromBase/currentCheckInterval)
 	nextCheckTime := baseTime.Add(time.Duration(nextCheckOffsetFromBase) * time.Second)
 
 	// Fixup check time if it happens to be after the next rapid start time.
