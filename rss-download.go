@@ -39,6 +39,8 @@ var downloadDelay = flag.Int(
 	"download_delay", 30, "seconds to wait before downloading the file")
 var requestDelay = flag.Int(
 	"request_delay", 5, "seconds to wait between requests")
+var checkImmediate = flag.Bool(
+	"check_immediately", false, "if set, check immediately on startup")
 
 var requestDelayTicker <-chan time.Time
 
@@ -146,7 +148,12 @@ func watchFeed(
 	lastTitle string) {
 	log.Printf("[%s] Starting watch.", name)
 
-	checkTime := firstCheckTime(time.Now(), dayOfWeek, seconds)
+	var checkTime time.Time
+	if *checkImmediate {
+		checkTime = time.Now()
+	} else {
+		checkTime = firstCheckTime(time.Now(), dayOfWeek, seconds)
+	}
 
 	// Main loop.
 	for {
