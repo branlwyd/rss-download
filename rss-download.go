@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -41,6 +42,7 @@ var requestDelay = flag.Int(
 	"request_delay", 5, "seconds to wait between requests")
 var checkImmediate = flag.Bool(
 	"check_immediately", false, "if set, check immediately on startup")
+var updateNotifyUrl = flag.String("update_notify_url", "", "url to push update notifications to")
 
 var requestDelayTicker <-chan time.Time
 
@@ -257,7 +259,18 @@ func main() {
 		_, err := db.Exec(
 			"UPDATE feeds SET lastTitle = ? WHERE name = ?", msg.Title, msg.Name)
 		if err != nil {
-			log.Printf("[%s] Error updating last title: %s", err)
+			log.Printf("[%s] Error updating last title: %s", msg.Name, err)
+		}
+
+		if len(*updateNotifyUrl) > 0 {
+			go func(name string) {
+				resp, err := http.PostForm(*updateNotifyUrl, url.Values{"text": {name}})
+				if err != nil {
+					log.Printf("[%s] Error pushing update notification: %s", name, err)
+					return
+				}
+				resp.Body.Close()
+			}(msg.Name)
 		}
 	}
 }
