@@ -38,11 +38,16 @@ var (
 	requestDelay       = flag.Int("request_delay", 5, "seconds to wait between requests")
 	checkImmediate     = flag.Bool("check_immediately", false, "if set, check immediately on startup")
 	updateCommand      = flag.String("update_command", "", "command to run after an update is noticed")
+	download           = flag.Bool("download", true, "if unset, do not actually download files")
 )
 
 var requestDelayTicker <-chan time.Time
 
 func downloadUrl(url string) error {
+	if !*download {
+		return errors.New("downloading disabled by flag")
+	}
+
 	// Figure out the filename to download to.
 	lastSeparatorIndex := strings.LastIndex(url, "/")
 	if lastSeparatorIndex == -1 {
@@ -58,6 +63,7 @@ func downloadUrl(url string) error {
 	}
 
 	// Actually download it.
+	<-requestDelayTicker
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("could not download %q: %v", url, err)
@@ -179,9 +185,7 @@ func watchFeed(
 					if *downloadDelay > 0 {
 						time.Sleep(time.Duration(*downloadDelay) * time.Second)
 					}
-					<-requestDelayTicker
-					err := downloadUrl(url)
-					if err != nil {
+					if err := downloadUrl(url); err != nil {
 						log.Printf("[%s] Error fetching %s: %s", name, url, err)
 					} else {
 						log.Printf("[%s] Fetched %s.", name, title)
