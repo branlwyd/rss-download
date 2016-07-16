@@ -27,21 +27,17 @@ type updatedTitleMessage struct {
 }
 
 // Flag specifications.
-var dbFilename = flag.String("db_file", "feeds.db", "filename of database to use")
-var target = flag.String("target", "", "target directory to download to")
-var checkInterval = flag.Int(
-	"check_interval", 3600, "seconds between checks during normal operation")
-var rapidCheckInterval = flag.Int(
-	"rapid_check_interval", 60, "seconds between checks when we suspect there will be a new item")
-var rapidCheckDuration = flag.Int(
-	"rapid_check_duration", 3600, "seconds that we suspect there will be a new item")
-var downloadDelay = flag.Int(
-	"download_delay", 30, "seconds to wait before downloading the file")
-var requestDelay = flag.Int(
-	"request_delay", 5, "seconds to wait between requests")
-var checkImmediate = flag.Bool(
-	"check_immediately", false, "if set, check immediately on startup")
-var updateNotifyUrl = flag.String("update_notify_url", "", "url to push update notifications to")
+var (
+	dbFilename         = flag.String("db_file", "feeds.db", "filename of database to use")
+	target             = flag.String("target", "", "target directory to download to")
+	checkInterval      = flag.Int("check_interval", 3600, "seconds between checks during normal operation")
+	rapidCheckInterval = flag.Int("rapid_check_interval", 60, "seconds between checks when we suspect there will be a new item")
+	rapidCheckDuration = flag.Int("rapid_check_duration", 3600, "seconds that we suspect there will be a new item")
+	downloadDelay      = flag.Int("download_delay", 30, "seconds to wait before downloading the file")
+	requestDelay       = flag.Int("request_delay", 5, "seconds to wait between requests")
+	checkImmediate     = flag.Bool("check_immediately", false, "if set, check immediately on startup")
+	updateNotifyUrl    = flag.String("update_notify_url", "", "url to push update notifications to")
+)
 
 var requestDelayTicker <-chan time.Time
 
