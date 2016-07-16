@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,24 +52,26 @@ func downloadUrl(url string) error {
 	if len(filename) == 0 {
 		return errors.New("malformed url (no filename)")
 	}
-	filepath := path.Join(*target, filename)
+	path := filepath.Join(*target, filename)
+	if path == *target || !strings.HasPrefix(path, *target) {
+		return fmt.Errorf("invalid download filename: %s", filename)
+	}
 
 	// Actually download it.
 	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not download %q: %v", url, err)
 	}
 	defer resp.Body.Close()
 
-	file, err := os.Create(filepath)
+	file, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not open %q: %v", path, err)
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		return fmt.Errorf("could not download %q to %q: %v", url, path, err)
 	}
 	return nil
 }
