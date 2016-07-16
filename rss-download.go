@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"math"
 	"net/http"
-	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ var (
 	downloadDelay      = flag.Int("download_delay", 30, "seconds to wait before downloading the file")
 	requestDelay       = flag.Int("request_delay", 5, "seconds to wait between requests")
 	checkImmediate     = flag.Bool("check_immediately", false, "if set, check immediately on startup")
-	updateNotifyUrl    = flag.String("update_notify_url", "", "url to push update notifications to")
+	updateCommand      = flag.String("update_command", "", "command to run after an update is noticed")
 )
 
 var requestDelayTicker <-chan time.Time
@@ -240,21 +241,21 @@ func main() {
 
 	for {
 		msg := <-messages
-		_, err := db.Exec(
-			"UPDATE feeds SET lastTitle = ? WHERE name = ?", msg.Title, msg.Name)
+		_, err := db.Exec("UPDATE feeds SET lastTitle = ? WHERE name = ?", msg.Title, msg.Name)
 		if err != nil {
 			log.Printf("[%s] Error updating last title: %s", msg.Name, err)
 		}
 
-		if len(*updateNotifyUrl) > 0 {
-			go func(name string) {
-				resp, err := http.PostForm(*updateNotifyUrl, url.Values{"text": {name}})
-				if err != nil {
-					log.Printf("[%s] Error pushing update notification: %s", name, err)
-					return
+		if len(*updateCommand) > 0 {
+			go func() {
+				cmd := exec.Command(*updateCommand)
+				cmd.Env = append(os.Environ(),
+					fmt.Sprintf("RSSD_NAME=%s", msg.Name),
+					fmt.Sprintf("RSSD_TITLE=%s", msg.Title))
+				if err := cmd.Run(); err != nil {
+					log.Printf("[%s] Error running update command: %v", msg.Name, err)
 				}
-				resp.Body.Close()
-			}(msg.Name)
+			}()
 		}
 	}
 }
